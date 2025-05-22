@@ -186,7 +186,7 @@ function PlasmicHomepage__RenderFunc(props: {
                   sty.text
                 )}
               >
-                {"Test Button"}
+                {"bananas"}
               </div>
             }
             onClick={async event => {
