@@ -1,4 +1,3 @@
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -6,6 +5,7 @@ const nextConfig = {
   },
   trailingSlash: true,
   reactStrictMode: true,
+  output: "export",
 };
 
 export default nextConfig;
