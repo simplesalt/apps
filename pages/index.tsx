@@ -7,6 +7,184 @@ import { PlasmicHomepage } from "../components/plasmic/apps/PlasmicHomepage";
 import { useRouter } from "next/router";
 
 function Homepage() {
+  // Register service worker for API interception
+  React.useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      // Inline service worker registration to ensure it works with static exports
+      const serviceWorkerCode = `
+        // API Interception Service Worker
+        console.log('🔧 Service Worker: Starting API Interception Service Worker');
+
+        // Cache for routing configuration
+        let routingConfig = null;
+        let cfAuthToken = null;
+
+        // Fetch routing configuration
+        async function loadRoutingConfig() {
+          try {
+            const response = await fetch('/routing.json');
+            routingConfig = await response.json();
+            console.log('📋 Service Worker: Loaded routing config:', routingConfig);
+          } catch (error) {
+            console.error('❌ Service Worker: Failed to load routing config:', error);
+          }
+        }
+
+        // Get CF auth token
+        async function getCFAuthToken() {
+          try {
+            // Try to get token from CF Zero Trust
+            const response = await fetch('/cdn-cgi/access/get-identity');
+            if (response.ok) {
+              const identity = await response.json();
+              cfAuthToken = identity.token || identity.access_token;
+              console.log('🔐 Service Worker: Got CF auth token');
+            }
+          } catch (error) {
+            console.log('ℹ️ Service Worker: No CF auth token available:', error.message);
+          }
+        }
+
+        // Initialize
+        self.addEventListener('install', (event) => {
+          console.log('🚀 Service Worker: Installing');
+          event.waitUntil(Promise.all([
+            loadRoutingConfig(),
+            getCFAuthToken()
+          ]));
+          self.skipWaiting();
+        });
+
+        self.addEventListener('activate', (event) => {
+          console.log('✅ Service Worker: Activated');
+          event.waitUntil(self.clients.claim());
+        });
+
+        // Intercept fetch requests
+        self.addEventListener('fetch', (event) => {
+          const url = new URL(event.request.url);
+          
+          // Only intercept external API calls
+          if (!routingConfig || url.origin === self.location.origin) {
+            return;
+          }
+
+          // Check if this URL matches any routing rules
+          const matchingRule = routingConfig.routes?.find(route => {
+            return url.hostname.includes(route.domain) || url.href.includes(route.domain);
+          });
+
+          if (matchingRule) {
+            console.log('🎯 Service Worker: Intercepting API call to', url.href, 'with rule:', matchingRule);
+            
+            event.respondWith(
+              (async () => {
+                try {
+                  // Build CF Worker URL
+                  const cfWorkerUrl = 'https://nuywznihg08edfslfk29.api.simplesalt.company';
+                  
+                  // Clone the original request
+                  const originalRequest = event.request.clone();
+                  const body = originalRequest.method !== 'GET' ? await originalRequest.blob() : null;
+                  
+                  // Create headers for CF Worker
+                  const headers = new Headers(originalRequest.headers);
+                  headers.set('X-Original-URL', url.href);
+                  headers.set('X-Auth-Type', matchingRule.authType.toString());
+                  headers.set('X-Secret-Name', matchingRule.secretName);
+                  
+                  // Add CF auth token if available
+                  if (cfAuthToken) {
+                    headers.set('CF-Access-JWT-Assertion', cfAuthToken);
+                  }
+
+                  // Make request to CF Worker
+                  const cfResponse = await fetch(cfWorkerUrl, {
+                    method: originalRequest.method,
+                    headers: headers,
+                    body: body
+                  });
+
+                  console.log('📡 Service Worker: CF Worker response:', cfResponse.status);
+                  return cfResponse;
+                  
+                } catch (error) {
+                  console.error('❌ Service Worker: Error proxying request:', error);
+                  // Fallback to original request
+                  return fetch(event.request);
+                }
+              })()
+            );
+          }
+        });
+      `;
+
+      // Create and register service worker from blob
+      const blob = new Blob([serviceWorkerCode], { type: 'application/javascript' });
+      const serviceWorkerUrl = URL.createObjectURL(blob);
+      
+      navigator.serviceWorker.register(serviceWorkerUrl)
+        .then((registration) => {
+          console.log('✅ Service Worker registered successfully:', registration);
+        })
+        .catch((error) => {
+          console.error('❌ Service Worker registration failed:', error);
+        });
+
+      // Also load CF auth utility
+      const cfAuthCode = `
+        // CF Zero Trust Authentication Utility
+        console.log('🔐 CF Auth: Initializing CF Zero Trust authentication');
+
+        // Check if user is authenticated with CF Zero Trust
+        async function checkCFAuth() {
+          try {
+            const response = await fetch('/cdn-cgi/access/get-identity');
+            if (response.ok) {
+              const identity = await response.json();
+              console.log('✅ CF Auth: User authenticated:', identity.email);
+              return identity;
+            } else {
+              console.log('⚠️ CF Auth: User not authenticated');
+              return null;
+            }
+          } catch (error) {
+            console.log('ℹ️ CF Auth: CF Zero Trust not active or error:', error.message);
+            return null;
+          }
+        }
+
+        // Auto-initiate authentication if needed
+        async function initAuth() {
+          const identity = await checkCFAuth();
+          if (!identity) {
+            console.log('🔄 CF Auth: Attempting to initiate authentication...');
+            // The presence of this script and the CF Zero Trust configuration
+            // should automatically redirect to GSuite for authentication
+            // if the user is not already authenticated
+          }
+        }
+
+        // Initialize on page load
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initAuth);
+        } else {
+          initAuth();
+        }
+
+        // Make auth functions available globally for testing
+        window.cfAuth = {
+          checkAuth: checkCFAuth,
+          initAuth: initAuth
+        };
+      `;
+
+      // Execute CF auth code
+      const script = document.createElement('script');
+      script.textContent = cfAuthCode;
+      document.head.appendChild(script);
+    }
+  }, []);
   // Use PlasmicHomepage to render this component as it was
   // designed in Plasmic, by activating the appropriate variants,
   // attaching the appropriate event handlers, etc.  You
