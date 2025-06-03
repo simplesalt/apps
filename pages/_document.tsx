@@ -8,8 +8,14 @@ export default function Document() {
         <script 
           src="/sw-register.js" 
           defer
-          // Add comment to explain purpose without affecting Plasmic
           data-purpose="api-call-interception"
+        />
+        
+        {/* CF Zero Trust Authentication */}
+        <script 
+          src="/cf-auth.js" 
+          defer
+          data-purpose="cf-zero-trust-auth"
         />
       </Head>
       <body>

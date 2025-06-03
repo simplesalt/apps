@@ -86,6 +86,38 @@ function shouldRedirect(routingRule) {
 }
 
 /**
+ * Get CF Access token from cookies or storage
+ */
+async function getCFAccessToken() {
+  // Try to get from cookies first
+  const cookies = await self.cookieStore?.getAll?.() || [];
+  for (const cookie of cookies) {
+    if (cookie.name === 'CF_Authorization') {
+      return cookie.value;
+    }
+  }
+  
+  // Fallback: try to communicate with main thread
+  try {
+    const clients = await self.clients.matchAll();
+    if (clients.length > 0) {
+      // Send message to main thread to get CF token
+      return new Promise((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = (event) => {
+          resolve(event.data.cfToken);
+        };
+        clients[0].postMessage({ type: 'GET_CF_TOKEN' }, [channel.port2]);
+      });
+    }
+  } catch (error) {
+    console.warn('[SW] Could not communicate with main thread for CF token:', error);
+  }
+  
+  return null;
+}
+
+/**
  * Handle API request by redirecting to the destination
  */
 async function handleApiRequest(request, routingRule) {
@@ -119,6 +151,17 @@ async function handleApiRequest(request, routingRule) {
     modifiedRequest.headers.set('X-Auth-Type', routingRule.authType.toString());
     if (routingRule.secretName) {
       modifiedRequest.headers.set('X-Secret-Name', routingRule.secretName);
+    }
+    
+    // Add CF Access token if available (for Zero Trust authentication)
+    try {
+      const cfToken = await getCFAccessToken();
+      if (cfToken) {
+        modifiedRequest.headers.set('CF-Access-Jwt-Assertion', cfToken);
+        console.log('[SW] Added CF Access token to proxied request');
+      }
+    } catch (error) {
+      console.warn('[SW] Could not get CF Access token:', error);
     }
     
     // Make the request to the destination
