@@ -1,0 +1,46 @@
+name: Trigger Regression Tests After Deployment
+
+on:
+  push:
+    branches: [ main ]
+  workflow_run:
+    workflows: ["Sync, build and deploy Plasmic app"]
+    types:
+      - completed
+
+jobs:
+  trigger-tests:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Wait for CF Pages deployment
+      run: |
+        echo "⏳ Waiting for Cloudflare Pages to complete deployment..."
+        # CF Pages typically takes 1-3 minutes to deploy after push
+        sleep 180
+        
+    - name: Trigger Regression Tests
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const triggerSource = '${{ github.event_name }}' === 'workflow_run' ? 'plasmic-deployment' : 'direct-push';
+          
+          await github.rest.repos.createDispatchEvent({
+            owner: 'simplesalt',
+            repo: 'CF_regression',
+            event_type: 'app-deployed',
+            client_payload: {
+              trigger_source: triggerSource,
+              deployment_type: 'application',
+              commit_sha: '${{ github.sha }}',
+              commit_message: '${{ github.event.head_commit.message || "Plasmic deployment" }}',
+              actor: '${{ github.actor }}',
+              app_url: 'https://apps.simplesalt.company'
+            }
+          });
+          
+          console.log('✅ Triggered regression tests after application deployment');
+          console.log(`Trigger source: ${triggerSource}`);
+          console.log('App URL: https://apps.simplesalt.company');
