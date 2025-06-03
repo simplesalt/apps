@@ -1,5 +1,6 @@
 import { Html, Head, Main, NextScript } from 'next/document'
 
+// Force rebuild - ensure service worker scripts are included
 export default function Document() {
   return (
     <Html lang="en">
