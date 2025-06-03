@@ -1,0 +1,98 @@
+name: Post-Deployment Regression Tests
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip regression tests'
+        required: false
+        default: 'false'
+
+jobs:
+  trigger-regression-tests:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_tests != 'true'
+    
+    steps:
+    - name: Wait for CF Pages deployment
+      run: |
+        echo "⏳ Waiting for CF Pages to complete deployment..."
+        # CF Pages typically takes 1-3 minutes to deploy
+        sleep 120
+        
+        # Test if the deployment is live
+        echo "🔍 Checking if deployment is ready..."
+        for i in {1..15}; do
+          if curl -f -s -o /dev/null "https://apps.simplesalt.company"; then
+            echo "✅ CF Pages deployment is live"
+            break
+          fi
+          echo "⏳ Waiting for CF Pages deployment... (attempt $i/15)"
+          sleep 20
+        done
+
+    - name: Trigger regression tests
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const response = await github.rest.repos.createDispatchEvent({
+            owner: 'simplesalt',
+            repo: 'CF_regression',
+            event_type: 'apps-deployed',
+            client_payload: {
+              source_repo: 'apps',
+              commit_sha: context.sha,
+              deployment_url: 'https://apps.simplesalt.company',
+              triggered_by: context.actor,
+              timestamp: new Date().toISOString()
+            }
+          });
+          
+          console.log('✅ Triggered regression tests in CF_regression repository');
+          console.log(`Commit: ${context.sha}`);
+          console.log(`Actor: ${context.actor}`);
+
+    - name: Create deployment status
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: context.sha,
+            state: 'success',
+            description: 'CF Pages deployment completed, regression tests triggered',
+            environment_url: 'https://apps.simplesalt.company'
+          });
+
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: trigger-regression-tests
+    if: always()
+    
+    steps:
+    - name: Deployment notification
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const status = '${{ needs.trigger-regression-tests.result }}';
+          const emoji = status === 'success' ? '🚀' : '⚠️';
+          const message = status === 'success' 
+            ? 'CF Pages deployment completed and regression tests triggered'
+            : 'CF Pages deployment may have issues - check logs';
+          
+          // Comment on the commit
+          await github.rest.repos.createCommitComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            commit_sha: context.sha,
+            body: `${emoji} **Deployment Status**: ${message}\n\n` +
+                  `🔗 **Live URL**: https://apps.simplesalt.company\n` +
+                  `🧪 **Regression Tests**: Triggered in CF_regression repository\n` +
+                  `📊 **Workflow**: ${context.payload.repository.html_url}/actions/runs/${context.runId}`
+          });
