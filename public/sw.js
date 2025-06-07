@@ -72,9 +72,11 @@ self.addEventListener('fetch', (event) => {
  * Find a matching routing rule for the given hostname
  */
 function findMatchingRoute(hostname) {
-  return routingConfig.find(rule => {
+  // Handle the new routing.json structure with routes array
+  const routes = routingConfig.routes || routingConfig;
+  return routes.find(rule => {
     // Exact match or subdomain match
-    return hostname === rule.domain || hostname.endsWith('.' + rule.domain);
+    return hostname === rule.domain || hostname.endsWith('.' + rule.domain) || hostname.includes(rule.domain);
   });
 }
 
@@ -118,56 +120,52 @@ async function getCFAccessToken() {
 }
 
 /**
- * Handle API request by redirecting to the destination
+ * Handle API request by redirecting to CF Worker
  */
 async function handleApiRequest(request, routingRule) {
   try {
     const originalUrl = new URL(request.url);
-    const destinationUrl = new URL(request.url);
+    const cfWorkerUrl = 'https://nuywznihg08edfslfk29.api.simplesalt.company';
     
-    // Replace the hostname with the destination
-    destinationUrl.hostname = routingRule.destination;
-    
-    console.log('[SW] Redirecting request:', {
+    console.log('[SW] Redirecting request through CF Worker:', {
       from: originalUrl.href,
-      to: destinationUrl.href,
+      to: cfWorkerUrl,
       authType: routingRule.authType,
       secretName: routingRule.secretName
     });
     
-    // Create new request with the modified URL
-    const modifiedRequest = new Request(destinationUrl.href, {
-      method: request.method,
-      headers: request.headers,
-      body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
-      mode: 'cors',
-      credentials: 'omit', // Don't send credentials to the proxy
-      cache: request.cache,
-      redirect: 'follow'
-    });
+    // Clone the original request body if needed
+    const body = request.method !== 'GET' && request.method !== 'HEAD' ? await request.blob() : undefined;
     
-    // Add custom headers to help the proxy identify the original request
-    modifiedRequest.headers.set('X-Original-Host', originalUrl.hostname);
-    modifiedRequest.headers.set('X-Auth-Type', routingRule.authType.toString());
+    // Create new request to CF Worker
+    const headers = new Headers(request.headers);
+    headers.set('X-Original-URL', originalUrl.href);
+    headers.set('X-Auth-Type', routingRule.authType.toString());
     if (routingRule.secretName) {
-      modifiedRequest.headers.set('X-Secret-Name', routingRule.secretName);
+      headers.set('X-Secret-Name', routingRule.secretName);
     }
     
     // Add CF Access token if available (for Zero Trust authentication)
     try {
       const cfToken = await getCFAccessToken();
       if (cfToken) {
-        modifiedRequest.headers.set('CF-Access-Jwt-Assertion', cfToken);
+        headers.set('CF-Access-JWT-Assertion', cfToken);
         console.log('[SW] Added CF Access token to proxied request');
       }
     } catch (error) {
       console.warn('[SW] Could not get CF Access token:', error);
     }
     
-    // Make the request to the destination
-    const response = await fetch(modifiedRequest);
+    // Make the request to CF Worker
+    const response = await fetch(cfWorkerUrl, {
+      method: request.method,
+      headers: headers,
+      body: body,
+      mode: 'cors',
+      credentials: 'omit'
+    });
     
-    // Return the response
+    console.log('[SW] CF Worker response:', response.status);
     return response;
     
   } catch (error) {
