@@ -18,7 +18,7 @@ export default function ApiTest() {
         }
       });
       
-      const result = {
+      const result: any = {
         url,
         status: response.status,
         statusText: response.statusText,
@@ -42,7 +42,7 @@ export default function ApiTest() {
     } catch (error) {
       const result = {
         url,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         timestamp: new Date().toISOString()
       };
       setResults(prev => [result, ...prev]);
@@ -63,7 +63,7 @@ export default function ApiTest() {
         alert('Service worker utilities not available');
       }
     } catch (error) {
-      alert('Error reloading service worker: ' + error.message);
+      alert('Error reloading service worker: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
