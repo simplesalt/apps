@@ -59,15 +59,10 @@ import {
   useGlobalActions
 } from "@plasmicapp/react-web/lib/host";
 
-import Button from "../../Button"; // plasmic-import: OV_w2bVDgVck/component
-
 import "@plasmicapp/react-web/lib/plasmic.css";
 
 import projectcss from "./plasmic.module.css"; // plasmic-import: bwZBdGc1jmSjpqkba8o6fa/projectcss
 import sty from "./PlasmicHomepage.module.css"; // plasmic-import: XVkMfJa0kJ1_/css
-
-import CircleIcon from "./icons/PlasmicIcon__Circle"; // plasmic-import: 0OX6sOckp02D/icon
-import ChevronDownIcon from "./icons/PlasmicIcon__ChevronDown"; // plasmic-import: 6cQXsaOXLKz1/icon
 
 createPlasmicElementProxy;
 
@@ -84,8 +79,6 @@ export type PlasmicHomepage__OverridesType = {
   root?: Flex__<"div">;
   section?: Flex__<"section">;
   h1?: Flex__<"h1">;
-  button?: Flex__<typeof Button>;
-  text?: Flex__<"div">;
 };
 
 export interface DefaultHomepageProps {}
@@ -169,71 +162,9 @@ function PlasmicHomepage__RenderFunc(props: {
                 sty.h1
               )}
             >
-              {"Welcome to your first page."}
+              {"go away"}
             </h1>
           </section>
-          <Button
-            data-plasmic-name={"button"}
-            data-plasmic-override={overrides.button}
-            className={classNames("__wab_instance", sty.button)}
-            label={
-              <div
-                data-plasmic-name={"text"}
-                data-plasmic-override={overrides.text}
-                className={classNames(
-                  projectcss.all,
-                  projectcss.__wab_text,
-                  sty.text
-                )}
-              >
-                {"bananas"}
-              </div>
-            }
-            onClick={async event => {
-              const $steps = {};
-
-              $steps["runCode"] = true
-                ? (() => {
-                    const actionArgs = {
-                      customFunction: async () => {
-                        return (() => {
-                          return fetch(
-                            "https://your-n8n-domain/webhook/update-hubspot",
-                            {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({
-                                email: "test@example.com",
-                                name: "Sample User"
-                              })
-                            }
-                          )
-                            .then(response => response.json())
-                            .then(data => {
-                              console.log("n8n response:", data);
-                              alert("Success: " + data.message);
-                            })
-                            .catch(error => {
-                              console.error("Error calling n8n:", error);
-                              alert("Failed to call API");
-                            });
-                        })();
-                      }
-                    };
-                    return (({ customFunction }) => {
-                      return customFunction();
-                    })?.apply(null, [actionArgs]);
-                  })()
-                : undefined;
-              if (
-                $steps["runCode"] != null &&
-                typeof $steps["runCode"] === "object" &&
-                typeof $steps["runCode"].then === "function"
-              ) {
-                $steps["runCode"] = await $steps["runCode"];
-              }
-            }}
-          />
         </div>
       </div>
     </React.Fragment>
@@ -241,11 +172,9 @@ function PlasmicHomepage__RenderFunc(props: {
 }
 
 const PlasmicDescendants = {
-  root: ["root", "section", "h1", "button", "text"],
+  root: ["root", "section", "h1"],
   section: ["section", "h1"],
-  h1: ["h1"],
-  button: ["button", "text"],
-  text: ["text"]
+  h1: ["h1"]
 } as const;
 type NodeNameType = keyof typeof PlasmicDescendants;
 type DescendantsType<T extends NodeNameType> =
@@ -254,8 +183,6 @@ type NodeDefaultElementType = {
   root: "div";
   section: "section";
   h1: "h1";
-  button: typeof Button;
-  text: "div";
 };
 
 type ReservedPropsType = "variants" | "args" | "overrides";
@@ -320,8 +247,6 @@ export const PlasmicHomepage = Object.assign(
     // Helper components rendering sub-elements
     section: makeNodeComponent("section"),
     h1: makeNodeComponent("h1"),
-    button: makeNodeComponent("button"),
-    text: makeNodeComponent("text"),
 
     // Metadata about props expected for PlasmicHomepage
     internalVariantProps: PlasmicHomepage__VariantProps,
