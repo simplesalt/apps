@@ -1,19 +1,16 @@
 [
   {
- 	"domain": "api.google.com",
+    "domain": "api.google.com",
     "authType": 1
-},
-{
-	"domain": "api.hubapi.com",
-  "authType": 2,
-  "secretName": "6nr8n2i1ve1rdnku8d1t",
-  "destination": "api.simplesalt.company"
-},
-{
-	"domain": "api.notion.com",
-  "authType": 3,
-  "secretName": "fhwowggbohorrud2kj16",
-  "destination": "api.simplesalt.company"
-}
-  
+  },
+  {
+    "domain": "api.hubapi.com",
+    "authType": 2,
+    "secretName": "6nr8n2i1ve1rdnku8d1t"
+  },
+  {
+    "domain": "api.notion.com",
+    "authType": 3,
+    "secretName": "fhwowggbohorrud2kj16"
+  }
 ]
