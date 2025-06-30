@@ -16,7 +16,12 @@
   // Configuration
   const CONFIG = {
     workerUrl: 'https://nuywznihg08edfslfk29.api.simplesalt.company',
-    routingUrl: 'https://apps.simplesalt.company/routing.json'
+    routingUrl: 'https://apps.simplesalt.company/routing.json',
+    allowedOrigins: [
+      'https://apps.simplesalt.company',
+      'https://studio.plasmic.app',
+      'https://host.plasmicdev.com'
+    ]
   };
   
   console.log('🚀 Initializing Plasmic API Proxy...');
