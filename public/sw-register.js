@@ -11,14 +11,15 @@
   // Configuration
   const CONFIG = {
     serviceWorkerUrl: 'https://apps.simplesalt.company/api-proxy-sw.js',
-    authDomain: 'apps.simplesalt.company',
+    nativeDomain: 'apps.simplesalt.company', // Where service worker is hosted
+    authDomain: 'api.simplesalt.company', // CF Access is configured here
     cfWorkerUrl: 'https://api.simplesalt.company/nuywznihg08edfslfk29',
     currentDomain: window.location.hostname,
     isNativeDomain: false
   };
 
-  // Detect if we're on the native domain
-  CONFIG.isNativeDomain = CONFIG.currentDomain === CONFIG.authDomain;
+  // Detect if we're on the native domain (where service worker should be used)
+  CONFIG.isNativeDomain = CONFIG.currentDomain === CONFIG.nativeDomain;
 
   console.log('[API-Proxy] Initializing on domain:', CONFIG.currentDomain);
   console.log('[API-Proxy] Native domain:', CONFIG.isNativeDomain);
@@ -102,7 +103,7 @@
       
       // Load CF auth script if not already loaded
       if (!window.cfAuth) {
-        await loadScript(CONFIG.isNativeDomain ? '/cf-auth.js' : 'https://apps.simplesalt.company/cf-auth.js');
+        await loadScript(CONFIG.isNativeDomain ? '/cf-auth.js' : `https://${CONFIG.nativeDomain}/cf-auth.js`);
       }
 
       // Initialize authentication
@@ -236,11 +237,29 @@
       const statusDiv = document.getElementById('cf-auth-status');
       statusDiv.textContent = '🔄 Opening authentication...';
       
+      // Try to open CF Access login - if 404, open the worker URL which should redirect
+      const loginUrl = `https://${CONFIG.authDomain}/cdn-cgi/access/login`;
+      const fallbackUrl = CONFIG.cfWorkerUrl;
+      
       const authWindow = window.open(
-        `https://${CONFIG.authDomain}/cdn-cgi/access/login`,
+        loginUrl,
         'cf-auth',
         'width=500,height=600,scrollbars=yes,resizable=yes'
       );
+      
+      // If login URL fails, try the worker URL as fallback
+      setTimeout(() => {
+        if (authWindow && !authWindow.closed) {
+          try {
+            // Check if we got a 404 by trying to access the window
+            if (authWindow.location.href.includes('404') || authWindow.document.title.includes('404')) {
+              authWindow.location.href = fallbackUrl;
+            }
+          } catch (e) {
+            // Cross-origin error is expected, ignore
+          }
+        }
+      }, 2000);
       
       // Poll for authentication completion
       const pollAuth = setInterval(async () => {
