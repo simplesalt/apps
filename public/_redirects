@@ -1,5 +1,0 @@
-# Cloudflare Pages Redirects and Headers
-# This file can also handle headers in some cases
-
-# Handle CORS for routing.json
-/routing.json /routing.json 200! Access-Control-Allow-Origin:*
