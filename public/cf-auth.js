@@ -34,8 +34,8 @@ class CFAuth {
   }
 
   /**
-   * Perform silent authentication against CF Zero Trust
-   * Leverages existing GSuite session in browser
+   * Perform CF Zero Trust authentication for static app
+   * Uses CF for Teams authentication flow
    */
   async performSilentAuth() {
     if (this.authInProgress) {
@@ -44,43 +44,130 @@ class CFAuth {
     }
 
     this.authInProgress = true;
-    console.log('🔄 Attempting silent CF Zero Trust authentication...');
+    console.log('🔄 Attempting CF Zero Trust authentication...');
 
     try {
-      // CF Access authentication endpoint
-      const authUrl = `https://${window.location.hostname}/cdn-cgi/access/login`;
+      // For static apps, we need to authenticate against CF for Teams
+      // This creates a session that can be used for API access
       
-      // Attempt silent authentication with existing GSuite session
-      const response = await fetch(authUrl, {
-        method: 'GET',
-        credentials: 'include', // Include existing cookies
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-
-      if (response.ok) {
-        // Extract CF Access JWT from response headers or cookies
-        const cfAccessJwt = this.extractCFAccessToken(response);
-        
-        if (cfAccessJwt) {
-          this.cfAccessToken = cfAccessJwt;
-          this.tokenExpiry = this.parseTokenExpiry(cfAccessJwt);
-          console.log('✅ Silent CF authentication successful');
-          return cfAccessJwt;
-        }
+      // Method 1: Check if we already have a CF session
+      const existingSession = this.checkExistingSession();
+      if (existingSession) {
+        console.log('✅ Existing CF Zero Trust session found');
+        this.cfAccessToken = existingSession;
+        return existingSession;
       }
 
-      // If silent auth fails, redirect to CF Access login
-      console.log('🔄 Silent auth failed, redirecting to CF Access login...');
-      return await this.redirectToLogin();
+      // Method 2: Initiate CF Zero Trust authentication
+      // This will use the user's GSuite/identity provider session
+      const authResult = await this.initiateCFZeroTrustAuth();
+      
+      if (authResult) {
+        this.cfAccessToken = authResult;
+        this.tokenExpiry = this.parseTokenExpiry(authResult);
+        console.log('✅ CF Zero Trust authentication successful');
+        return authResult;
+      }
+
+      // Method 3: If no user auth available, continue without user context
+      // The CF Worker will still handle API authentication using stored secrets
+      console.log('ℹ️ No user authentication available - continuing with service auth only');
+      return null;
 
     } catch (error) {
-      console.error('❌ Silent authentication failed:', error);
-      throw error;
+      console.error('❌ CF Zero Trust authentication failed:', error);
+      // Don't throw - allow the app to continue without user auth
+      return null;
     } finally {
       this.authInProgress = false;
+    }
+  }
+
+  /**
+   * Check for existing CF Zero Trust session
+   */
+  checkExistingSession() {
+    // Check for CF session cookies
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'CF_Authorization' || 
+          name.includes('cf_clearance') ||
+          name.includes('__cf_bm')) {
+        return value;
+      }
+    }
+    
+    // Check localStorage for stored session
+    try {
+      const stored = localStorage.getItem('cf_zero_trust_session');
+      if (stored) {
+        const session = JSON.parse(stored);
+        if (session.token && session.expiry > Date.now()) {
+          return session.token;
+        }
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+    
+    return null;
+  }
+
+  /**
+   * Initiate CF Zero Trust authentication flow
+   */
+  async initiateCFZeroTrustAuth() {
+    try {
+      // Create a hidden iframe to handle the auth flow
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      
+      // Use CF for Teams authentication endpoint
+      // This will redirect through the identity provider (GSuite) and back
+      const authUrl = 'https://simplesalt.cloudflareaccess.com/cdn-cgi/access/login';
+      iframe.src = authUrl;
+      
+      document.body.appendChild(iframe);
+
+      // Wait for authentication to complete
+      const token = await new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds timeout
+        
+        const checkAuth = () => {
+          attempts++;
+          
+          // Check if we got a token
+          const session = this.checkExistingSession();
+          if (session) {
+            document.body.removeChild(iframe);
+            resolve(session);
+            return;
+          }
+          
+          // Timeout after 30 seconds
+          if (attempts >= maxAttempts) {
+            document.body.removeChild(iframe);
+            resolve(null);
+            return;
+          }
+          
+          // Check again in 1 second
+          setTimeout(checkAuth, 1000);
+        };
+        
+        // Start checking after 2 seconds to allow iframe to load
+        setTimeout(checkAuth, 2000);
+      });
+
+      return token;
+      
+    } catch (error) {
+      console.error('❌ CF Zero Trust auth flow failed:', error);
+      return null;
     }
   }
 

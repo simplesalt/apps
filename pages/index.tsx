@@ -81,7 +81,7 @@ function Homepage() {
               (async () => {
                 try {
                   // Build CF Worker URL
-                  const cfWorkerUrl = 'https://nuywznihg08edfslfk29.api.simplesalt.company';
+                  const cfWorkerUrl = 'https://api.simplesalt.company/nuywznihg08edfslfk29';
                   
                   // Clone the original request
                   const originalRequest = event.request.clone();
