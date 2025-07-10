@@ -15,20 +15,20 @@ class CFAuth {
    * Attempts silent authentication if GSuite session exists
    */
   async initializeAuth() {
-    console.log('🔐 Initializing CF Zero Trust authentication...');
-    
+    console.log("🔐 Initializing CF Zero Trust authentication...");
+
     try {
       // Check if we already have a valid CF Access token
       const existingToken = this.getCFAccessToken();
       if (existingToken && this.isTokenValid()) {
-        console.log('✅ Valid CF Access token found');
+        console.log("✅ Valid CF Access token found");
         return existingToken;
       }
 
       // Attempt silent authentication
       return await this.performSilentAuth();
     } catch (error) {
-      console.error('❌ CF Auth initialization failed:', error);
+      console.error("❌ CF Auth initialization failed:", error);
       throw error;
     }
   }
@@ -39,21 +39,21 @@ class CFAuth {
    */
   async performSilentAuth() {
     if (this.authInProgress) {
-      console.log('⏳ Authentication already in progress...');
+      console.log("⏳ Authentication already in progress...");
       return this.waitForAuth();
     }
 
     this.authInProgress = true;
-    console.log('🔄 Attempting CF Zero Trust authentication...');
+    console.log("🔄 Attempting CF Zero Trust authentication...");
 
     try {
       // For static apps, we need to authenticate against CF for Teams
       // This creates a session that can be used for API access
-      
+
       // Method 1: Check if we already have a CF session
       const existingSession = this.checkExistingSession();
       if (existingSession) {
-        console.log('✅ Existing CF Zero Trust session found');
+        console.log("✅ Existing CF Zero Trust session found");
         this.cfAccessToken = existingSession;
         return existingSession;
       }
@@ -61,21 +61,22 @@ class CFAuth {
       // Method 2: Initiate CF Zero Trust authentication
       // This will use the user's GSuite/identity provider session
       const authResult = await this.initiateCFZeroTrustAuth();
-      
+
       if (authResult) {
         this.cfAccessToken = authResult;
         this.tokenExpiry = this.parseTokenExpiry(authResult);
-        console.log('✅ CF Zero Trust authentication successful');
+        console.log("✅ CF Zero Trust authentication successful");
         return authResult;
       }
 
       // Method 3: If no user auth available, continue without user context
       // The CF Worker will still handle API authentication using stored secrets
-      console.log('ℹ️ No user authentication available - continuing with service auth only');
+      console.log(
+        "ℹ️ No user authentication available - continuing with service auth only"
+      );
       return null;
-
     } catch (error) {
-      console.error('❌ CF Zero Trust authentication failed:', error);
+      console.error("❌ CF Zero Trust authentication failed:", error);
       // Don't throw - allow the app to continue without user auth
       return null;
     } finally {
@@ -88,19 +89,21 @@ class CFAuth {
    */
   checkExistingSession() {
     // Check for CF session cookies
-    const cookies = document.cookie.split(';');
+    const cookies = document.cookie.split(";");
     for (let cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'CF_Authorization' || 
-          name.includes('cf_clearance') ||
-          name.includes('__cf_bm')) {
+      const [name, value] = cookie.trim().split("=");
+      if (
+        name === "CF_Authorization" ||
+        name.includes("cf_clearance") ||
+        name.includes("__cf_bm")
+      ) {
         return value;
       }
     }
-    
+
     // Check localStorage for stored session
     try {
-      const stored = localStorage.getItem('cf_zero_trust_session');
+      const stored = localStorage.getItem("cf_zero_trust_session");
       if (stored) {
         const session = JSON.parse(stored);
         if (session.token && session.expiry > Date.now()) {
@@ -110,7 +113,7 @@ class CFAuth {
     } catch (e) {
       // Ignore localStorage errors
     }
-    
+
     return null;
   }
 
@@ -120,26 +123,27 @@ class CFAuth {
   async initiateCFZeroTrustAuth() {
     try {
       // Create a hidden iframe to handle the auth flow
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.style.width = '1px';
-      iframe.style.height = '1px';
-      
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.style.width = "1px";
+      iframe.style.height = "1px";
+
       // Use CF for Teams authentication endpoint
       // This will redirect through the identity provider (GSuite) and back
-      const authUrl = 'https://simplesalt.cloudflareaccess.com/cdn-cgi/access/login';
+      const authUrl =
+        "https://simplesalt.cloudflareaccess.com/cdn-cgi/access/login/simplesalt.cloudflareaccess.com";
       iframe.src = authUrl;
-      
+
       document.body.appendChild(iframe);
 
       // Wait for authentication to complete
       const token = await new Promise((resolve) => {
         let attempts = 0;
         const maxAttempts = 30; // 30 seconds timeout
-        
+
         const checkAuth = () => {
           attempts++;
-          
+
           // Check if we got a token
           const session = this.checkExistingSession();
           if (session) {
@@ -147,26 +151,25 @@ class CFAuth {
             resolve(session);
             return;
           }
-          
+
           // Timeout after 30 seconds
           if (attempts >= maxAttempts) {
             document.body.removeChild(iframe);
             resolve(null);
             return;
           }
-          
+
           // Check again in 1 second
           setTimeout(checkAuth, 1000);
         };
-        
+
         // Start checking after 2 seconds to allow iframe to load
         setTimeout(checkAuth, 2000);
       });
 
       return token;
-      
     } catch (error) {
-      console.error('❌ CF Zero Trust auth flow failed:', error);
+      console.error("❌ CF Zero Trust auth flow failed:", error);
       return null;
     }
   }
@@ -178,10 +181,10 @@ class CFAuth {
   async redirectToLogin() {
     const currentUrl = encodeURIComponent(window.location.href);
     const loginUrl = `https://${window.location.hostname}/cdn-cgi/access/login?redirect_url=${currentUrl}`;
-    
-    console.log('🔄 Redirecting to CF Access login...');
+
+    console.log("🔄 Redirecting to CF Access login...");
     window.location.href = loginUrl;
-    
+
     // This won't return as we're redirecting
     return new Promise(() => {});
   }
@@ -191,14 +194,14 @@ class CFAuth {
    */
   extractCFAccessToken(response) {
     // Method 1: Check CF-Access-Jwt-Assertion header
-    let token = response.headers.get('CF-Access-Jwt-Assertion');
+    let token = response.headers.get("CF-Access-Jwt-Assertion");
     if (token) return token;
 
     // Method 2: Check cookies for CF_Authorization
-    const cookies = document.cookie.split(';');
+    const cookies = document.cookie.split(";");
     for (let cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'CF_Authorization') {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "CF_Authorization") {
         return value;
       }
     }
@@ -224,10 +227,10 @@ class CFAuth {
     }
 
     // Try to get from cookies
-    const cookies = document.cookie.split(';');
+    const cookies = document.cookie.split(";");
     for (let cookie of cookies) {
-      const [name, value] = cookie.trim().split('=');
-      if (name === 'CF_Authorization') {
+      const [name, value] = cookie.trim().split("=");
+      if (name === "CF_Authorization") {
         this.cfAccessToken = value;
         this.tokenExpiry = this.parseTokenExpiry(value);
         return value;
@@ -250,10 +253,10 @@ class CFAuth {
    */
   parseTokenExpiry(jwt) {
     try {
-      const payload = JSON.parse(atob(jwt.split('.')[1]));
+      const payload = JSON.parse(atob(jwt.split(".")[1]));
       return payload.exp * 1000; // Convert to milliseconds
     } catch (error) {
-      console.warn('Could not parse JWT expiry:', error);
+      console.warn("Could not parse JWT expiry:", error);
       return Date.now() + 3600000; // Default to 1 hour
     }
   }
@@ -280,7 +283,7 @@ class CFAuth {
   addAuthHeaders(headers = {}) {
     const token = this.getCFAccessToken();
     if (token) {
-      headers['CF-Access-Jwt-Assertion'] = token;
+      headers["CF-Access-Jwt-Assertion"] = token;
     }
     return headers;
   }
@@ -290,13 +293,13 @@ class CFAuth {
    */
   async authenticatedFetch(url, options = {}) {
     const token = await this.initializeAuth();
-    
+
     const authHeaders = this.addAuthHeaders(options.headers || {});
-    
+
     return fetch(url, {
       ...options,
       headers: authHeaders,
-      credentials: 'include'
+      credentials: "include",
     });
   }
 }
@@ -305,16 +308,16 @@ class CFAuth {
 window.cfAuth = new CFAuth();
 
 // Handle service worker messages for CF token
-navigator.serviceWorker?.addEventListener('message', (event) => {
-  if (event.data.type === 'GET_CF_TOKEN') {
+navigator.serviceWorker?.addEventListener("message", (event) => {
+  if (event.data.type === "GET_CF_TOKEN") {
     const token = window.cfAuth.getCFAccessToken();
     event.ports[0].postMessage({ cfToken: token });
   }
 });
 
 // Auto-initialize on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
     window.cfAuth.initializeAuth().catch(console.error);
   });
 } else {
@@ -322,6 +325,6 @@ if (document.readyState === 'loading') {
 }
 
 // Export for module usage
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== "undefined" && module.exports) {
   module.exports = CFAuth;
 }
