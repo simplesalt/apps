@@ -35,4 +35,4 @@
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' *.simplesalt.company *.cloudflareaccess.com accounts.google.com *.googleapis.com www.googleapis.com oauth2.googleapis.com gmail.googleapis.com calendar-json.googleapis.com api.notion.com
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' fonts.googleapis.com; connect-src 'self' *.simplesalt.company *.cloudflareaccess.com accounts.google.com *.googleapis.com www.googleapis.com oauth2.googleapis.com gmail.googleapis.com calendar-json.googleapis.com api.notion.com
