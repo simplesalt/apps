@@ -8,13 +8,7 @@
  * <script src="https://apps.simplesalt.company/auth-proxy-loader.js"></script>
  * 
  * Or for Plasmic page elements:
- * <script>
- *   (function(){
- *     const script = document.createElement('script');
- *     script.src = 'https://apps.simplesalt.company/auth-proxy-loader.js';
- *     document.head.appendChild(script);
- *   })();
- * </script>
+ * <script>(function(){const script = document.createElement('script');script.src = 'https://apps.simplesalt.company/auth-proxy-loader.js';document.head.appendChild(script);})();</script>
  */
 
 (function() {
