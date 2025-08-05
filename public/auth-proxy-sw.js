@@ -55,11 +55,15 @@ async function initializeConfig() {
   config.isNativeDomain = config.currentDomain === config.authDomain;
   
   // Set routing config URL
-  if (config.isNativeDomain) {
-    config.routingConfigUrl = '/routing.json';
-  } else {
-    config.routingConfigUrl = `https://${config.authDomain}/routing.json`;
-  }
+  // TODO: Investigate why domain detection reports apps.simplesalt.company when running on studio.plasmic.app
+  // if (config.isNativeDomain) {
+  //   config.routingConfigUrl = "/routing.json";
+  // } else {
+  //   config.routingConfigUrl = `https://${config.authDomain}/routing.json`;
+  // }
+  
+  // Always use FQDN until domain detection issue is resolved
+  config.routingConfigUrl = `https://${config.authDomain}/routing.json`;
   
   console.log('🌐 Domain detected:', config.currentDomain);
   console.log('📍 Routing config URL:', config.routingConfigUrl);
